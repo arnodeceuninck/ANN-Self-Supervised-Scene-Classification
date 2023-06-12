@@ -1,4 +1,4 @@
-# All code in this file is taken from the ANN lab sessions
+# All code in this file is taken from the ANN lab sessions (slightly modified)
 """
 Created on Tues Mar 10 08:13:15 2020
 @author: Alex Stoken - https://github.com/alexstoken
@@ -23,7 +23,7 @@ class RegularizedClassSpecificImageGeneration():
         Produces an image that maximizes a certain class with gradient ascent. Uses Gaussian blur, weight decay, and clipping.
     """
 
-    def __init__(self, model, target_class):
+    def __init__(self, model, target_class, output_dir='generated'):
         self.mean = [-0.485, -0.456, -0.406]
         self.std = [1 / 0.229, 1 / 0.224, 1 / 0.225]
         self.model = model.cuda() if use_cuda else model
@@ -31,9 +31,10 @@ class RegularizedClassSpecificImageGeneration():
         self.target_class = target_class
         # Generate a random image
         self.created_image = np.uint8(np.random.uniform(0, 255, (224, 224, 3)))
+        self.output_dir = output_dir
         # Create the folder to export images if not exists
-        if not os.path.exists(f'../generated/class_{self.target_class}'):
-            os.makedirs(f'../generated/class_{self.target_class}')
+        if not os.path.exists(f'{self.output_dir}/class_{self.target_class}'):
+            os.makedirs(f'{self.output_dir}/class_{self.target_class}')
 
     def generate(self, iterations=150, blur_freq=4, blur_rad=1, wd=0.0001, clipping_value=0.1):
         """Generates class specific image with enhancements to improve image quality.
@@ -94,15 +95,15 @@ class RegularizedClassSpecificImageGeneration():
 
             if i in np.linspace(0, iterations, 10, dtype=int):
                 # Save image
-                im_path = f'../generated/class_{self.target_class}/c_{self.target_class}_iter_{i}_loss_{class_loss.data.cpu().numpy()}.jpg'
+                im_path = f'{self.output_dir}/class_{self.target_class}/c_{self.target_class}_iter_{i}_loss_{class_loss.data.cpu().numpy()}.jpg'
                 save_image(self.created_image, im_path)
 
         # save final image
-        im_path = f'../generated/class_{self.target_class}/c_{self.target_class}_iter_{i}_loss_{class_loss.data.cpu().numpy()}.jpg'
+        im_path = f'{self.output_dir}/class_{self.target_class}/c_{self.target_class}_iter_{i}_loss_{class_loss.data.cpu().numpy()}.jpg'
         save_image(self.created_image, im_path)
 
         # write file with regularization details
-        with open(f'../generated/class_{self.target_class}/run_details.txt', 'w') as f:
+        with open(f'{self.output_dir}/class_{self.target_class}/run_details.txt', 'w') as f:
             f.write(f'Iterations: {iterations}\n')
             f.write(f'Blur freq: {blur_freq}\n')
             f.write(f'Blur radius: {blur_rad}\n')
@@ -110,8 +111,8 @@ class RegularizedClassSpecificImageGeneration():
             f.write(f'Clip value: {clipping_value}\n')
 
         # rename folder path with regularization details for easy access
-        os.rename(f'../generated/class_{self.target_class}',
-                  f'../generated/class_{self.target_class}_blurfreq_{blur_freq}_blurrad_{blur_rad}_wd{wd}')
+        os.rename(f'{self.output_dir}/class_{self.target_class}',
+                  f'{self.output_dir}/class_{self.target_class}_blurfreq_{blur_freq}_blurrad_{blur_rad}_wd{wd}')
         return self.processed_image
 
 
