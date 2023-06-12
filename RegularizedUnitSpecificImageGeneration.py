@@ -23,14 +23,20 @@ class RegularizedClassSpecificImageGeneration():
         Produces an image that maximizes a certain class with gradient ascent. Uses Gaussian blur, weight decay, and clipping.
     """
 
-    def __init__(self, model, target_class, output_dir='generated'):
+    def __init__(self, model, target_class, output_dir='generated', grayscale=False):
         self.mean = [-0.485, -0.456, -0.406]
         self.std = [1 / 0.229, 1 / 0.224, 1 / 0.225]
         self.model = model.cuda() if use_cuda else model
         self.model.eval()
         self.target_class = target_class
         # Generate a random image
-        self.created_image = np.uint8(np.random.uniform(0, 255, (224, 224, 3)))
+        if not grayscale:
+            self.created_image = np.uint8(np.random.uniform(0, 255, (224, 224, 3)))
+        else:
+            self.created_image = np.uint8(np.random.uniform(0, 255, (224, 224)))
+            # repeat the grayscale image across all 3 channels
+            self.created_image = np.stack((self.created_image,)*3, axis=-1)
+
         self.output_dir = output_dir
         # Create the folder to export images if not exists
         if not os.path.exists(f'{self.output_dir}/class_{self.target_class}'):
@@ -160,8 +166,10 @@ def preprocess_and_blur_image(pil_im, resize_im=True, blur_rad=None):
     # Convert to Pytorch variable
     if use_cuda:
         im_as_var = Variable(im_as_ten.cuda(), requires_grad=True)
+        # im_as_var = torch.nn.Parameter(im_as_ten.cuda(), requires_grad=True)
     else:
         im_as_var = Variable(im_as_ten, requires_grad=True)
+        # im_as_var = torch.nn.Parameter(im_as_ten, requires_grad=True)
     return im_as_var
 
 
