@@ -23,14 +23,21 @@ class RegularizedClassSpecificImageGeneration():
         Produces an image that maximizes a certain class with gradient ascent. Uses Gaussian blur, weight decay, and clipping.
     """
 
-    def __init__(self, model, target_class, output_dir='generated', grayscale=False):
+    def __init__(self, model, target_class, output_dir='generated', grayscale=None, verbose=True, n_outputs=10):
+        if grayscale is not None:
+            print("grayscale is deprecated") if verbose else None
+
+        print(f"Use cuda: {use_cuda}") if verbose else None
+
         self.mean = [-0.485, -0.456, -0.406]
         self.std = [1 / 0.229, 1 / 0.224, 1 / 0.225]
         self.model = model.cuda() if use_cuda else model
         self.model.eval()
         self.target_class = target_class
+        self.verbose = verbose
+        self.n_outputs = n_outputs
         # Generate a random image
-        if not grayscale:
+        if True or not grayscale:
             self.created_image = np.uint8(np.random.uniform(0, 255, (224, 224, 3)))
         else:
             self.created_image = np.uint8(np.random.uniform(0, 255, (224, 224)))
@@ -42,7 +49,7 @@ class RegularizedClassSpecificImageGeneration():
         if not os.path.exists(f'{self.output_dir}/class_{self.target_class}'):
             os.makedirs(f'{self.output_dir}/class_{self.target_class}')
 
-    def generate(self, iterations=150, blur_freq=4, blur_rad=1, wd=0.0001, clipping_value=0.1):
+    def generate(self, iterations=150, blur_freq=4, blur_rad=1, wd=0.0001, clipping_value=0.1, initial_learning_rate=6):
         """Generates class specific image with enhancements to improve image quality.
         See https://arxiv.org/abs/1506.06579 for details on each argument's effect on output quality.
 
@@ -58,7 +65,7 @@ class RegularizedClassSpecificImageGeneration():
         Returns:
             np.ndarray -- Final maximally activated class image
         """
-        initial_learning_rate = 6
+        # initial_learning_rate = 6
         for i in range(1, iterations):
             # Process image and return variable
 
@@ -83,7 +90,7 @@ class RegularizedClassSpecificImageGeneration():
             # Target specific class
             class_loss = -output[0, self.target_class]
 
-            if i in np.linspace(0, iterations, 10, dtype=int):
+            if self.verbose and i in np.linspace(0, iterations, self.n_outputs, dtype=int):
                 print('Iteration:', str(i), 'Loss',
                       "{0:.2f}".format(class_loss.data.cpu().numpy()))
             # Zero grads
@@ -99,7 +106,7 @@ class RegularizedClassSpecificImageGeneration():
             # Recreate image
             self.created_image = recreate_image(self.processed_image.cpu())
 
-            if i in np.linspace(0, iterations, 10, dtype=int):
+            if self.n_outputs != 0 and i in np.linspace(0, iterations, self.n_outputs, dtype=int):
                 # Save image
                 im_path = f'{self.output_dir}/class_{self.target_class}/c_{self.target_class}_iter_{i}_loss_{class_loss.data.cpu().numpy()}.jpg'
                 save_image(self.created_image, im_path)
@@ -117,10 +124,15 @@ class RegularizedClassSpecificImageGeneration():
             f.write(f'Clip value: {clipping_value}\n')
 
         # rename folder path with regularization details for easy access
-        os.rename(f'{self.output_dir}/class_{self.target_class}',
-                  f'{self.output_dir}/class_{self.target_class}_blurfreq_{blur_freq}_blurrad_{blur_rad}_wd{wd}')
-        return self.processed_image
+        loss = class_loss.data.cpu().numpy()
+        random_int = np.random.randint(0, 10000)
 
+        os.rename(f'{self.output_dir}/class_{self.target_class}',
+                  f'{self.output_dir}/class_{self.target_class}_{loss}_blurfreq_{blur_freq}_blurrad_{blur_rad}_wd{wd}_rand{random_int}')
+
+        os.makedirs(f'{self.output_dir}/class_{self.target_class}')
+        # return self.processed_image
+        return loss
 
 def preprocess_and_blur_image(pil_im, resize_im=True, blur_rad=None):
     """
