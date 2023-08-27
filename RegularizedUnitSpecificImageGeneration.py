@@ -23,7 +23,7 @@ class RegularizedClassSpecificImageGeneration():
         Produces an image that maximizes a certain class with gradient ascent. Uses Gaussian blur, weight decay, and clipping.
     """
 
-    def __init__(self, model, target_class, output_dir='generated', grayscale=None, verbose=True, n_outputs=10):
+    def __init__(self, model, target_class, output_dir='generated', grayscale=None, verbose=True, n_outputs=10, silu_output=False):
         if grayscale is not None:
             print("grayscale is deprecated") if verbose else None
 
@@ -36,6 +36,7 @@ class RegularizedClassSpecificImageGeneration():
         self.target_class = target_class
         self.verbose = verbose
         self.n_outputs = n_outputs
+        self.loss_list = []
         # Generate a random image
         if True or not grayscale:
             self.created_image = np.uint8(np.random.uniform(0, 255, (224, 224, 3)))
@@ -48,6 +49,8 @@ class RegularizedClassSpecificImageGeneration():
         # Create the folder to export images if not exists
         if not os.path.exists(f'{self.output_dir}/class_{self.target_class}'):
             os.makedirs(f'{self.output_dir}/class_{self.target_class}')
+
+        self.silu_output = silu_output
 
     def generate(self, iterations=150, blur_freq=4, blur_rad=1, wd=0.0001, clipping_value=0.1, initial_learning_rate=6):
         """Generates class specific image with enhancements to improve image quality.
@@ -65,13 +68,14 @@ class RegularizedClassSpecificImageGeneration():
         Returns:
             np.ndarray -- Final maximally activated class image
         """
+        self.loss_list = []
         # initial_learning_rate = 6
         for i in range(1, iterations):
             # Process image and return variable
 
             # implement gaussian blurring every ith iteration
             # to improve output
-            if i % blur_freq == 0:
+            if blur_freq != 0 and i % blur_freq == 0:
                 self.processed_image = preprocess_and_blur_image(
                     self.created_image, False, blur_rad)
             else:
@@ -85,14 +89,27 @@ class RegularizedClassSpecificImageGeneration():
             # in SGD, wd = 2 * L2 regularization (https://bbabenko.github.io/weight-decay/)
             optimizer = SGD([self.processed_image],
                             lr=initial_learning_rate, weight_decay=wd)
-            # Forward
-            output = self.model(self.processed_image)
-            # Target specific class
-            class_loss = -output[0, self.target_class]
+
+            if not self.silu_output:
+                # Forward
+                output = self.model(self.processed_image)
+                # Target specific class
+                class_loss = -output[0, self.target_class]
+            else:
+                # run to maximize silu output
+                # output = self.model.features(self.processed_image)
+                output1 = self.model.features[:8](self.processed_image)
+                output2 = self.model.features[8][0](output1) # don't take the silu itself, since the loss gets to zero then
+                output = self.model.features[8][1](output2)
+                class_loss = -output[0, self.target_class].sum()
+
+            loss_np = class_loss.data.cpu().numpy()
+            self.loss_list.append(loss_np)
+
 
             if self.verbose and i in np.linspace(0, iterations, self.n_outputs, dtype=int):
                 print('Iteration:', str(i), 'Loss',
-                      "{0:.2f}".format(class_loss.data.cpu().numpy()))
+                      "{0:.2f}".format(loss_np))
             # Zero grads
             self.model.zero_grad()
             # Backward
