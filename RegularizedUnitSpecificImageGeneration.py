@@ -37,13 +37,6 @@ class RegularizedClassSpecificImageGeneration():
         self.verbose = verbose
         self.n_outputs = n_outputs
         self.loss_list = []
-        # Generate a random image
-        if True or not grayscale:
-            self.created_image = np.uint8(np.random.uniform(0, 255, (224, 224, 3)))
-        else:
-            self.created_image = np.uint8(np.random.uniform(0, 255, (224, 224)))
-            # repeat the grayscale image across all 3 channels
-            self.created_image = np.stack((self.created_image,)*3, axis=-1)
 
         self.output_dir = output_dir
         # Create the folder to export images if not exists
@@ -68,6 +61,12 @@ class RegularizedClassSpecificImageGeneration():
         Returns:
             np.ndarray -- Final maximally activated class image
         """
+
+        # Generate a random image
+        self.created_image = np.uint8(np.random.uniform(0, 255, (224, 224)))
+        # repeat the grayscale image across all 3 channels
+        self.created_image = np.stack((self.created_image,)*3, axis=-1)
+
         self.loss_list = []
         # initial_learning_rate = 6
         for i in range(1, iterations):
@@ -97,11 +96,11 @@ class RegularizedClassSpecificImageGeneration():
                 class_loss = -output[0, self.target_class]
             else:
                 # run to maximize silu output
-                # output = self.model.features(self.processed_image)
-                output1 = self.model.features[:8](self.processed_image)
-                output2 = self.model.features[8][0](output1) # don't take the silu itself, since the loss gets to zero then
-                output = self.model.features[8][1](output2)
-                class_loss = -output[0, self.target_class].sum()
+                output = self.model.features(self.processed_image)
+                # output1 = self.model.features[:8](self.processed_image)
+                # output2 = self.model.features[8][0](output1) # don't take the silu itself, since the loss gets to zero then
+                # output = self.model.features[8][1](output2)
+                class_loss = -output[0, self.target_class].mean()
 
             loss_np = class_loss.data.cpu().numpy()
             self.loss_list.append(loss_np)

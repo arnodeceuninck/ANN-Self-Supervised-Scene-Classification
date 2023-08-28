@@ -211,6 +211,13 @@ class TrainLogger:
         else:
             return np.max(self.val_accuracy_per_epoch)
 
+    def get_best_train_acc(self, epoch=False):
+        # epoch or not indicates whether the epoch number should also be returned
+        if epoch:
+            return np.max(self.train_accuracy_per_epoch), np.argmax(self.train_accuracy_per_epoch)
+        else:
+            return np.max(self.train_accuracy_per_epoch)
+
     def get_best_loss(self, epoch=False):
         # epoch or not indicates whether the epoch number should also be returned
         if epoch:

@@ -1,5 +1,8 @@
-# code from https://github.com/Nguyen-Hoa/Activation-Maximization/blob/master/act_max_util.py
+# code based on https://github.com/Nguyen-Hoa/Activation-Maximization/blob/master/act_max_util.py
+# adapted to aggregate layer output
+# and to return loss list
 
+print("Reloaded")
 import torch
 import torch.nn as nn
 import torchvision.models as models
@@ -123,6 +126,8 @@ def act_max(network,
     best_activation = -float('inf')
     best_img = input
 
+    losses = []
+
     for k in range(steps):
 
         input.retain_grad()  # non-leaf tensor
@@ -135,12 +140,19 @@ def act_max(network,
 
         # compute gradients w.r.t. target unit,
         # then access the gradient of input (image) w.r.t. target unit (neuron)
-        layer_out[0][unit].backward(retain_graph=True)
+        target_unit = layer_out[0][unit]
+        # aggregate output
+        target_unit_sum = target_unit.sum()
+        # target_unit_sum = target_unit
+        # backward pass on each of the 7x7 values in the target unit
+
+        target_unit_sum.backward(retain_graph=True)
         img_grad = input.grad
 
         # Gradient Step
         # input = input + alpha * dimage_dneuron
         input = torch.add(input, torch.mul(img_grad, alpha))
+
 
         # regularization does not contribute towards gradient
         """
@@ -154,7 +166,7 @@ def act_max(network,
                 input = torch.mul(input, (1.0 - theta_decay))
 
             # Regularization: Gaussian Blur
-            if Gaussian_Blur and k % theta_every is 0:
+            if Gaussian_Blur and k % theta_every == 0:
                 temp = input.squeeze(0)
                 temp = temp.detach().numpy()
                 for channel in range(3):
@@ -176,7 +188,7 @@ def act_max(network,
         input.requires_grad_(True)
 
         if verbose:
-            print('step: ', k, 'activation: ', layer_out[0][unit])
+            print('step: ', k, 'activation: ', target_unit_sum)
 
         if generate_gif:
             frame = input.detach().squeeze(0)
@@ -185,11 +197,14 @@ def act_max(network,
             cv2.imwrite(path_to_gif + str(k) + '.jpg', frame)
 
         # Keep highest activation
-        if best_activation < layer_out[0][unit]:
-            best_activation = layer_out[0][unit]
+        if best_activation < target_unit_sum:
+            best_activation = target_unit_sum
             best_img = input
 
-    return best_img
+        target_unit_sum = target_unit_sum.detach().numpy()
+        losses.append(target_unit_sum)
+
+    return best_img, losses
 
 
 """

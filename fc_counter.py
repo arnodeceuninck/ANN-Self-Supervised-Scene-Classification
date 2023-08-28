@@ -1,2 +1,28 @@
-string = "\n    \\begin{tabular}{lllll}\n    \\textbf{Label} & \\textbf{Original} & \\textbf{Supervised} & \\textbf{Rotation pretext} & \\textbf{Perturbation pretext} \\ \n\n    coast & coast & \\includegraphics[width=0.2\\textwidth,valign=m]\\{img/explanations/supervised_block1_coast_image_0223.png} & \\includegraphics[width=0.2\\textwidth,valign=m]\\{img/explanations/pretext_rotation_block1_coast_image_0223.png} & \\includegraphics[width=0.2\\textwidth,valign=m]\\{img/explanations/pretext_perturbation_block1_coast_image_0223.png} \\ \ninsidecity & insidecity & \\includegraphics[width=0.2\\textwidth,valign=m]\\{img/explanations/supervised_block1_insidecity_image_0184.png} & \\includegraphics[width=0.2\\textwidth,valign=m]\\{img/explanations/pretext_rotation_block1_insidecity_image_0184.png} & \\includegraphics[width=0.2\\textwidth,valign=m]\\{img/explanations/pretext_perturbation_block1_insidecity_image_0184.png} \\ \ntallbuilding & tallbuilding & \\includegraphics[width=0.2\\textwidth,valign=m]\\{img/explanations/supervised_block1_tallbuilding_image_0153.png} & \\includegraphics[width=0.2\\textwidth,valign=m]\\{img/explanations/pretext_rotation_block1_tallbuilding_image_0153.png} & \\includegraphics[width=0.2\\textwidth,valign=m]\\{img/explanations/pretext_perturbation_block1_tallbuilding_image_0153.png} \\ \n\\end{tabular}"
-print(string)
+import matplotlib.pyplot as plt
+import seaborn as sns
+from matplotlib.lines import Line2D
+import pandas as pd
+import pickle
+import numpy as np
+from training import TrainLogger, TrainConfig
+
+# load pickle file
+def hyperopt_analysis(filename):
+    with open(filename, 'rb') as f:
+        results = pickle.load(f)
+
+    lowest_loss = np.inf
+    for i, ((lr, batch_size), log) in enumerate(results):
+        print(f"{i} -> acc val/train {log.get_best_val_acc()} / {log.get_best_train_acc()} / loss {log.get_best_loss()}")
+        if log.get_best_loss() < lowest_loss:
+            lowest_loss = log.get_best_loss()
+            best_log = log
+            print(f"new best loss: {lowest_loss}")
+    print(f"best loss: {lowest_loss}")
+    # print("debug")
+
+# after 3 epochs
+hyperopt_analysis("outputs/hyperopt_clf-pert-pretext-lr10-5_20230825_210356_all.pickle")
+
+# after 6 epochs
+# hyperopt_analysis("outputs/hyperopt_clf-pert-pretext-lr10-5_20230826_034528_all.pickle")
